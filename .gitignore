@@ -31,5 +31,6 @@
 *.out
 *.app
 
-#ADD
+# Private
 .vscode/
+CheckList.txt

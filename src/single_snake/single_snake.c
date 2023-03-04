@@ -6,7 +6,7 @@
 #include <string.h>
 #include <time.h>
 
-//vvvvvvvvEDITABLE ZONEvvvvvvvv
+// vvvvvvvvEDITABLE ZONEvvvvvvvv
 #define MAP_WIDTH 16
 #define MAP_HEIGHT 8
 #define MAP_HAS_WALL true
@@ -17,7 +17,16 @@
 
 // Map backgrund filling character.
 #define MAP_BG_CHAR '+'
+
+// If your computer's perfermance isn't enough that the game will flash too fast sometimes, you can comment this macro defination.
+//#define ENABLE_FPS_FIX
 //^^^^^^^^EDITABLE ZONE^^^^^^^^
+
+#ifdef __WINDOWS__
+#include <windows.h>
+#else
+// #include <unistd.h>
+#endif
 
 #define SCAN_DELAY_MS 50
 
@@ -77,6 +86,45 @@ struct timespec AddTimespec(const struct timespec x, const struct timespec y);
 struct timespec RealTimespec(const struct timespec x);
 bool IsOverTimespec(const struct timespec last, const struct timespec now, const int delayMs);
 
+#ifdef __WINDOWS__
+void cls(HANDLE hConsole)
+{
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	SMALL_RECT scrollRect;
+	COORD scrollTarget;
+	CHAR_INFO fill;
+
+	// Get the number of character cells in the current buffer.
+	if (!GetConsoleScreenBufferInfo(hConsole, &csbi))
+	{
+		return;
+	}
+
+	// Scroll the rectangle of the entire buffer.
+	scrollRect.Left = 0;
+	scrollRect.Top = 0;
+	scrollRect.Right = csbi.dwSize.X;
+	scrollRect.Bottom = csbi.dwSize.Y;
+
+	// Scroll it upwards off the top of the buffer with a magnitude of the entire height.
+	scrollTarget.X = 0;
+	scrollTarget.Y = (SHORT)(0 - csbi.dwSize.Y);
+
+	// Fill with empty spaces with the buffer's default text attribute.
+	fill.Char.UnicodeChar = TEXT(' ');
+	fill.Attributes = csbi.wAttributes;
+
+	// Do the scroll
+	ScrollConsoleScreenBuffer(hConsole, &scrollRect, NULL, scrollTarget, &fill);
+
+	// Move the cursor to the top left corner too.
+	csbi.dwCursorPosition.X = 0;
+	csbi.dwCursorPosition.Y = 0;
+
+	SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
+}
+#endif
+
 int main()
 {
 	int delayMs;
@@ -88,6 +136,10 @@ int main()
 	bool deathFlag, eatenFoodFlag;
 
 	struct timespec ts_temp;
+
+#ifdef __WINDOWS__
+	HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+#endif
 
 	while (true)
 	{
@@ -230,8 +282,16 @@ int main()
 				clock_gettime(CLOCK_REALTIME, &ts_temp);
 				deltaFrameTime = DiffTimespec(lastFrameTime, ts_temp);
 				lastFrameTime = ts_temp;
-				//clrscr();
-				//system("cls");
+
+				// clrscr();
+				// system("clear");
+				// stdout->_ptr = stdout->_base;
+#ifdef __WINDOWS__
+				void cls(hStdout);
+#else
+				fputs("\033c", stdout);
+#endif
+
 				PrintMap();
 				PrintFrameInfo();
 				frameCount++;
@@ -369,23 +429,27 @@ void ResizeMap(const int width, const int height, const char background)
 	// memset(sbi,SBI_NULL,sizeof(int)*newSize);
 }
 
-void SetGameOptions(){
+void SetGameOptions()
+{
 	int _stepPs;
 
-	do{
-		printf("Step of snake per second (%d~%d): ",STEP_PER_MIN,STEP_PER_MAX);
+	do
+	{
+		printf("Step of snake per second (%d~%d): ", STEP_PER_MIN, STEP_PER_MAX);
 		fflush(stdin);
-		scanf("%d",&_stepPs);
-	}while(_stepPs<STEP_PER_MIN||_stepPs>STEP_PER_MAX);
+		scanf("%d", &_stepPs);
+	} while (_stepPs < STEP_PER_MIN || _stepPs > STEP_PER_MAX);
 }
 
-void SaveRecord(){
-	FILE* fp = fopen(".single_snake_record.txt", "a");
-	if(fp==NULL){
+void SaveRecord()
+{
+	FILE *fp = fopen(".single_snake_record.txt", "a");
+	if (fp == NULL)
+	{
 		printf("Can't open or create record file.");
 		exit(-1);
 	}
-	fprintf(fp,"name=\"\",map(w=%d,h=%d),sps=%d,l=%d,score=%d",mapW,mapH,stepPS,snakeL,score);
+	fprintf(fp, "name=\"\",map(w=%d,h=%d),sps=%d,l=%d,score=%d", mapW, mapH, stepPS, snakeL, score);
 	fclose(fp);
 }
 
@@ -497,18 +561,20 @@ void Delay(const int delayMs, const bool resetDelayCache)
 	{
 		clock_gettime(CLOCK_REALTIME, &ts_now);
 		// printf("{last{sec=%lld,ns=%d},now{sec=%lld,ns=%d}}\n",delayCache.tv_sec,delayCache.tv_nsec,ts_now.tv_sec,ts_now.tv_nsec);
-
-		// If use sleep function to save CPU time need to specify OS type.
 	}
 
+#ifdef ENABLE_FPS_FIX
 	ts_delay.tv_sec = delayMs / 1000;
 	ts_delay.tv_nsec = delayMs % 1000 * 1000000;
 
 	delayCache = AddTimespec(delayCache, ts_delay);
+#else
+	delayCache = ts_now;
+#endif
 }
 
 struct timespec DiffTimespec(const struct timespec x, const struct timespec y)
-{ // return y-x.
+{
 	struct timespec diff;
 
 	diff.tv_nsec = y.tv_nsec - x.tv_nsec;

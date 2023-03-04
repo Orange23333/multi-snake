@@ -1,0 +1,1 @@
+name="",map(w=16,h=8),sps=4,l=5,score=4
