@@ -1,4 +1,4 @@
-#include <conio.h>
+//#include <conio.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -7,25 +7,29 @@
 #include <time.h>
 
 // vvvvvvvvEDITABLE ZONEvvvvvvvv
-#define MAP_WIDTH 16
-#define MAP_HEIGHT 8
+#define MAP_WIDTH 32
+#define MAP_HEIGHT 16
 #define MAP_HAS_WALL true
 
-#define STEP_PER_SECOND 4
+#define STEP_PER_SECOND 8
 #define STEP_PER_MIN 1
-#define STEP_PER_MAX 8
+#define STEP_PER_MAX 16
 
 // Map backgrund filling character.
 #define MAP_BG_CHAR '+'
 
 // If your computer's perfermance isn't enough that the game will flash too fast sometimes, you can comment this macro defination.
 //#define ENABLE_FPS_FIX
+
+//#define __WINDOWS__
 //^^^^^^^^EDITABLE ZONE^^^^^^^^
 
 #ifdef __WINDOWS__
 #include <windows.h>
 #else
-// #include <unistd.h>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
 #endif
 
 #define SCAN_DELAY_MS 50
@@ -123,6 +127,43 @@ void cls(HANDLE hConsole)
 
 	SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
 }
+#else
+int kbhit(void)
+{
+struct termios oldt, newt;
+    int ch;
+    int oldf;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+    ch = getchar();
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+    if(ch != EOF)
+    {
+        ungetc(ch, stdin);
+        return 1;
+    }
+    return 0;
+}
+
+// https://bytes.com/topic/c/answers/503640-getch-linux
+int getch()
+{
+    struct termios oldt,
+    newt;
+    int ch;
+    tcgetattr( STDIN_FILENO, &oldt );
+    newt = oldt;
+    newt.c_lflag &= ~( ICANON | ECHO );
+    tcsetattr( STDIN_FILENO, TCSANOW, &newt );
+    ch = getchar();
+    tcsetattr( STDIN_FILENO, TCSANOW, &oldt );
+    return ch;
+}
 #endif
 
 int main()
@@ -158,6 +199,11 @@ int main()
 		// When snakeL>mapSize the game will be end.
 		// That also means although the snake fills screen, the game wont' end.
 
+#ifdef __WINDOWS__
+        void cls(hStdout);
+#else
+        fputs("\033c", stdout);
+#endif
 		PrintMap();
 		PrintFrameInfo();
 		puts("Press WASD to change your direction.");
@@ -165,7 +211,7 @@ int main()
 		fflush(stdin);
 		do
 		{
-			input = getch();
+            input = getch();
 			// putchar(input);
 		} while (strchr("wasd", input) == NULL);
 		// putchar('\n');
@@ -176,7 +222,7 @@ int main()
 		{
 			if (kbhit())
 			{
-				input = getch();
+                input = getch();
 				// putchar(input);
 			}
 
@@ -498,6 +544,7 @@ void PrintMap()
 	int x, y;
 	int bodyIndex;
 
+    putchar('\n');
 	for (y = 0; y < mapH; y++)
 	{
 		for (x = 0; x < mapW; x++)
